@@ -55,14 +55,14 @@ class Rnode {
     const int maxChildren = 4;
     Place* tops = new Place[maxChildren + 1];
     Rnode** children = new Rnode * [maxChildren + 1];
-    int number;
+    int numTops;
     int numChildren;
     Rect square;
 public:
     bool isLeaf;
     Rnode() {
-        this->number = 1;
-        this->number = 0;
+        this->numChildren = 0;
+        this->numTops = 0;
         this->isLeaf = true;
     }
     void add(Place p) {
@@ -82,17 +82,18 @@ public:
         sibling->square.up = mid;
         sibling->square.left = child->square.left;
         sibling->square.right = child->square.right;
-        for (int i = this->number - 1; i >= 0; i--) {
+
+        for (int i = this->numTops - 1; i >= 0; i--) {
             if (sibling->square.in(this->tops[i])) {
-                sibling->tops[sibling->number] = tops[i];
-                sibling->number += 1;
+                sibling->tops[sibling->numTops] = tops[i];
+                sibling->numTops += 1;
                 for (int j = i; j >= 0; j -= 1) {
                     child->tops[i] = child->tops[i + 1];
                 }
             }
         }
-        child->numChildren -= sibling->numChildren;
-        for (int i = this->number + 1; i > idx; i -= 1) {
+        child->numTops -= sibling->numTops;
+        for (int i = this->numChildren + 1; i > idx; i -= 1) {
             this->children[i] = this->children[i - 1];
         }
         this->children[idx + 1] = sibling;
@@ -104,8 +105,7 @@ public:
         bool appended = false;
         double dist = INT_MAX;
         int ind = 1;
-        for (int i = 0; i < this->number; i++) {
-
+        for (int i = 0; i < this->numChildren; i++) {
             if (this->children[i]->square.in(p)) {
                 minPlace = this->children[i];
                 ind = i;
@@ -119,10 +119,9 @@ public:
                 }
             }
         }
-        if (minPlace->children[ind]->number == this->maxChildren || this->children[ind]->numChildren == this->maxChildren) {
+        if (minPlace->children[ind]->numChildren == this->maxChildren || this->children[ind]->numTops == this->maxChildren) {
             split(ind);
         }
-
         if (this->children[ind]->square.distance(p) <= this->children[ind + 1]->square.distance(p)) {
             this->children[ind]->add(p);
         }
@@ -131,16 +130,20 @@ public:
     }
 
     void addVal(Place p) {
-        this->tops[this->number] = p;
-        this->numChildren += 1;
+        this->tops[this->numTops] = p;
+        this->numTops += 1;
         this->square.left = min(this->square.left, p.lng);
         this->square.right = max(this->square.right, p.lng);
         this->square.up = max(this->square.up, p.lat);
         this->square.down = min(this->square.down, p.lat);
     }
 
-    bool getNumberOfChildren() {
+    int getNumberOfChildren() {
         return this->numChildren;
+    }
+    
+    int getNumberOfTops() {
+        return this->numTops;
     }
 };
 
@@ -160,7 +163,7 @@ public:
                 temp->children[0] = root;
                 temp->split(0);
                 this->root = temp;
-                this->root->number = 2;
+                this->root->numChildren = 2;
                 this->root->isLeaf = false;
             }
         root->add(p);
