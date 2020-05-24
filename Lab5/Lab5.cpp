@@ -41,7 +41,7 @@ struct Rect
         this->down = INT_MAX;
     }
     bool in(Place p) {
-        return this->left<p.lng&& this->right>p.lng && this->down<p.lng&& this->up>p.lng;
+        return this->left<=p.lng&& this->right>=p.lng && this->down<=p.lat&& this->up>=p.lat;
     }
     double distance(Place p) {
         if (in(p))return 0;
@@ -71,28 +71,31 @@ public:
         {
             this->chooseLeaf(p);
         }
+        this->updateSides(p);
     }
 
     void split(int idx) {
         Rnode* child = this->children[idx];
-        Rnode* sibling = this->children[idx] + 1;
-        double mid = (child->square.up - child->square.down) / 2;
+        Rnode* sibling = new Rnode;
+        double mid = (child->square.up + child->square.down) / 2;
         sibling->square.down = child->square.down;
         child->square.down = mid;
         sibling->square.up = mid;
         sibling->square.left = child->square.left;
         sibling->square.right = child->square.right;
 
-        for (int i = this->numTops - 1; i >= 0; i--) {
-            if (sibling->square.in(this->tops[i])) {
-                sibling->tops[sibling->numTops] = tops[i];
+        for (int i = child->numTops - 1; i >= 0; i--) {
+            Place temp = child->tops[i];
+            if (sibling->square.in(child->tops[i])) {
+                sibling->tops[sibling->numTops] = child->tops[i];
                 sibling->numTops += 1;
-                for (int j = i; j >= 0; j -= 1) {
+                for (int j = i; j <= child->numTops; j += 1) {
                     child->tops[i] = child->tops[i + 1];
                 }
+                child->numTops -= 1;
             }
         }
-        child->numTops -= sibling->numTops;
+
         for (int i = this->numChildren + 1; i > idx; i -= 1) {
             this->children[i] = this->children[i - 1];
         }
@@ -119,7 +122,7 @@ public:
                 }
             }
         }
-        if (minPlace->children[ind]->numChildren == this->maxChildren || this->children[ind]->numTops == this->maxChildren) {
+        if (minPlace->numChildren == this->maxChildren || minPlace->numTops == this->maxChildren) {
             split(ind);
         }
         if (this->children[ind]->square.distance(p) <= this->children[ind + 1]->square.distance(p)) {
@@ -128,14 +131,15 @@ public:
         else
             this->children[ind + 1]->add(p);
     }
-
-    void addVal(Place p) {
-        this->tops[this->numTops] = p;
-        this->numTops += 1;
+    void updateSides(Place p) {
         this->square.left = min(this->square.left, p.lng);
         this->square.right = max(this->square.right, p.lng);
         this->square.up = max(this->square.up, p.lat);
         this->square.down = min(this->square.down, p.lat);
+    }
+    void addVal(Place p) {
+        this->tops[this->numTops] = p;
+        this->numTops += 1;
     }
 
     int getNumberOfChildren() {
@@ -158,12 +162,13 @@ public:
             root = new Rnode();
         }
         else
-            if (this->root->numChildren == this->root->maxChildren) {
+            if (this->root->numTops == this->root->maxChildren || this->root->numChildren==this->root->maxChildren) {
                 Rnode* temp = new Rnode();
                 temp->children[0] = root;
                 temp->split(0);
                 this->root = temp;
-                this->root->numChildren = 2;
+                this->root->numChildren = 1;
+                this->root->numTops = 0;
                 this->root->isLeaf = false;
             }
         root->add(p);
@@ -200,4 +205,5 @@ void readCsvFile()
 
 int main() {
     readCsvFile();
+
 }

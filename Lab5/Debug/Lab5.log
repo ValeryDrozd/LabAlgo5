@@ -1,4 +1,4 @@
 ﻿  Lab5.cpp
-C:\Users\moroz\source\repos\Lab5\Lab5\Lab5.cpp(188,10): warning C4101: 'place': unreferenced local variable
-C:\Users\moroz\source\repos\Lab5\Lab5\Lab5.cpp(185,9): warning C4101: 'n': unreferenced local variable
+C:\Users\moroz\source\repos\Lab5\Lab5\Lab5.cpp(193,10): warning C4101: 'place': unreferenced local variable
+C:\Users\moroz\source\repos\Lab5\Lab5\Lab5.cpp(190,9): warning C4101: 'n': unreferenced local variable
   Lab5.vcxproj -> C:\Users\moroz\source\repos\Lab5\Debug\Lab5.exe
