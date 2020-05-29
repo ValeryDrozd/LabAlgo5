@@ -1,0 +1,6 @@
+﻿  Lab5.cpp
+C:\Users\moroz\source\repos\Lab5\Lab5\Lab5.cpp(20,30): warning C4244: '=': conversion from 'const double' to 'int', possible loss of data
+C:\Users\moroz\source\repos\Lab5\Lab5\Lab5.cpp(41,29): warning C4244: 'argument': conversion from 'double' to 'int', possible loss of data
+C:\Users\moroz\source\repos\Lab5\Lab5\Lab5.cpp(308,10): warning C4101: 'place': unreferenced local variable
+C:\Users\moroz\source\repos\Lab5\Lab5\Lab5.cpp(305,9): warning C4101: 'n': unreferenced local variable
+  Lab5.vcxproj -> C:\Users\moroz\source\repos\Lab5\Debug\Lab5.exe
