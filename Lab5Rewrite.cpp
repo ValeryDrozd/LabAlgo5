@@ -5,12 +5,13 @@
 #include <sstream>
 #include <cmath>
 #include <fstream>
+#include <algorithm>
 #include <iomanip>
 #define pi 3.14159265358979323846  
-#define minChildren 1
-#define maxChildren 4
+#define minChildren 8
+#define maxChildren 16
 using namespace std;
-
+bool out = 0;
 double min(double a, double b) {
     return a > b ? b : a;
 }
@@ -60,30 +61,35 @@ struct Rect
     double right;
     double up;
     double down;
+    
     Rect() {
         this->left = INT_MAX;
         this->right = INT_MIN;
         this->up = INT_MIN;
         this->down = INT_MAX;
     }
+
     bool in(Place p) {
         return this->left <= p.lng && this->right >= p.lng && this->down <= p.lat && this->up >= p.lat;
     }
+    
     double distance(Place p) {
         if (in(p))return 0;
         return min(abs(this->left - p.lng), min(abs(this->right - p.lng), min(abs(this->up - p.lat), abs(this->down - p.lat))));
     }
+    
     double ClosestDistance(double x0, double y0, double x1, double y1, double x2, double  y2)
     {
         return abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1) / sqrt(pow(y2 - y1, 2.0) + pow(x2 - x1, 2.0));
     }
+    
     int znak(double x, double y, double xs, double ys, double xf, double yf) {
         double xa = xf - xs, xb = x - xs, ya = yf - ys, yb = y - ys;
         if (xa * xb + ya * yb < 0)return -1;
         else return 1;
 
     }
-    bool collideUtil(double xs,double ys,double xf,double yf,double xa,double ya,double r)
+    bool collideUtil(double xs, double ys, double xf, double yf, double xa, double ya, double r)
     {
         double xv1 = xa - xs, yv1 = ya - ys, xv2 = xf - xs, yv2 = yf - ys;
         double dist;
@@ -95,84 +101,103 @@ struct Rect
         if (dist <= r)return true;
         return false;
     }
-    bool collide(double xs,double ys, double r) {
-        return collideUtil(this->left,this->down,this->left,this->up,xs, ys, r) ||
-               collideUtil(this->left, this->up, this->right, this->up, xs, ys, r) || 
-               collideUtil(this->right, this->up, this->right, this->down, xs, ys, r) ||
-               collideUtil(this->left, this->down, this->right, this->down, xs, ys, r) ||
-               this->in(Place(xs,ys));
+
+    bool collide(double xs, double ys, double r) {
+        return collideUtil(this->left, this->down, this->left, this->up, xs, ys, r) ||
+            collideUtil(this->left, this->up, this->right, this->up, xs, ys, r) ||
+            collideUtil(this->right, this->up, this->right, this->down, xs, ys, r) ||
+            collideUtil(this->left, this->down, this->right, this->down, xs, ys, r) ||
+            this->in(Place(xs, ys));
     }
-};  
+};
+
 
 class Rnode {
     friend class Rtree;
-    int numPlaces;
-    int numChildren,numTops;
+    int numChildren, numTops;
     vector <Place> Places;
     bool isLeaf;
     vector <Rnode* > children;
     Rect square;
 public:
-    Rnode(){
+    Rnode() {
         this->isLeaf = true;
         numTops = 0;
         numChildren = 0;
-        numPlaces = 0;
         Places.clear();
         children.clear();
         this->square = Rect();
     }
-    
+    bool cmp(Rnode *a, Rnode *b) {
+        if (a->square.up >= b->square.up)return true;
+        return false;
+    }
     void add(Place p) {
+        this->updateSides(p);
         if (this->isLeaf)this->insert(p);
         else
         {
             this->findToInsert(p);
         }
-        this->updateSides(p);
     }
 
     void insert(Place p) {
         this->Places.push_back(p);
-        this->numPlaces += 1;
+        this->numTops += 1;
     }
 
     void split(int idx) {
         Rnode* child = this->children[idx];
         Rnode* sibling = new Rnode;
-        double mid = (child->square.up + child->square.down) / 2;
+        vector <double> comps;
+        double mid;
+        if (child->isLeaf) {
+            for (int i = 0; i < child->numTops; i += 1)
+                comps.push_back(child->Places[i].lat);
+            sort(comps.begin(), comps.end());
+            mid = (comps[ceil(maxChildren / 2)] + comps[ceil(maxChildren / 2) - 1]) / 2;
+        }
+        else {
+            mid = child->children[1]->square.down;
+        }
         sibling->square.down = child->square.down;
         child->square.down = mid;
         sibling->square.up = mid;
         sibling->square.left = child->square.left;
         sibling->square.right = child->square.right;
-        
+        vector <int> toDel;
+
         for (int i = child->numTops - 1; i >= 0; i--) {
-            Place temp = child->Places[i];
             if (sibling->square.in(child->Places[i])) {
-                sibling->Places[sibling->numTops] = child->Places[i];
-                sibling->numTops += 1;
-                for (int j = i; j < child->numTops - 1; j += 1) {
-                    child->Places[j] = child->Places[j + 1];
-                }
-                child->numTops -= 1;
+                toDel.push_back(i);
             }
+        }
+        for (int i = 0; i < toDel.size(); i += 1) {
+            sibling->Places.push_back(child->Places[toDel[i]]);
+            sibling->numTops += 1;
+            child->Places.erase(child->Places.begin() + toDel[i]);
+            child->numTops -= 1;
         }
         if (!child->isLeaf) {
-            for (int i = 0; i < child->numChildren; i += 1) {
-                if (child->children[i]->square.up <= mid) {
-                    sibling->children[sibling->numChildren] = this->children[i];
-                    sibling->numChildren += 1;
-                }
+            double t = child->children.back()->square.up;
+            while (t<=mid)
+            {
+
+                sibling->children.push_back(child->children.back());
+                sibling->numChildren += 1;
+                child->numChildren -= 1;
+                child->children.pop_back();
+                t = child->children.back()->square.up;
             }
-            child->numChildren -= sibling->numChildren;
+         
         }
-        for (int i = this->numChildren + 1; i > idx; i -= 1) {
-            this->children[i] = this->children[i - 1];
+        sibling->isLeaf = child->isLeaf;
+        this->children.insert(this->children.begin() + idx + 1, sibling);
+        for (int i = 0; i < this->children.size(); i += 1) {
+            for (int j = 0 ; j < this->children.size() - 1; j += 1) {
+                if (this->children[j]->square.up < this->children[j + 1]->square.up)swap(this->children[j], this->children[j + 1]);
+            }
         }
-        this->children[idx] = child;
-        this->children.insert(this->children.begin()+idx+1,sibling);
-        this->children[idx + 1] = sibling;
         this->numChildren += 1;
     }
 
@@ -193,17 +218,15 @@ public:
                 }
         }
         bool splitted = false;
-        if (minPlace->numChildren == maxChildren || minPlace->numTops >= maxChildren) {
+        if (minPlace->numChildren == maxChildren+1 || minPlace->numTops >= maxChildren+1) {
             splitted = 1;
             split(idx);
+            this->findToInsert(p);
         }
         if (splitted && this->children[idx]->square.distance(p) > this->children[idx + 1]->square.distance(p)) {
             idx += 1;
         }
         this->children[idx]->add(p);
-
-    }
-    void outAll() {
 
     }
     void updateSides(Place p) {
@@ -212,9 +235,24 @@ public:
         this->square.up = max(this->square.up, p.lat);
         this->square.down = min(this->square.down, p.lat);
     }
+    void find(double x,double y,double r) {
+        if (this->isLeaf == true) {
+            for (int i = 0; i < this->numTops; i += 1) {
+                if (this->Places[i].distanceToPoint(x, y) <= r) {
+                    cout << this->Places[i].name << endl;
+                }
+            }
+        }
+        else
+        {
+            for (int i = 0; i < numChildren; i += 1) {
+                if (this->children[i]->square.collide(x, y, r)) { children[i]->find(x, y, r); }
+            }
+        }
+    }
 };
 
-class Rtree{
+class Rtree {
     Rnode* root;
 public:
     Rtree() {
@@ -222,15 +260,24 @@ public:
     }
     void add(Place p) {
         if (this->root == NULL)this->root = new Rnode;
+        else
         if (this->root->numChildren == maxChildren || this->root->numTops == maxChildren) {
             Rnode* temp = new Rnode;
             temp->isLeaf = false;
-            temp->children[0] = this->root;
+            temp->children.push_back( this->root);
             temp->numChildren += 1;
+            temp->square = root->square;
             temp->split(0);
+            this->root = temp;
 
         }
         this->root->add(p);
+    }
+    void find(double lat,double lng,double r) {
+        pair <double, double> p = toKm(lat, lng);
+        double xCoord = p.second;
+        double yCoord = p.first;
+        this->root->find(xCoord, yCoord, r);
     }
 };
 
@@ -276,7 +323,7 @@ int main() {
     string type, subType;
     cin >> type >> subType;
     double lat, lng, r;
-   //cout << "Enter radius and coords of circle\n";
-   //cin >> lat >> lng >> r;
-    //m[type][subType].find(lat, lng, r);
+    cout << "Enter center of circle and its radius\n";
+    cin >> lat >> lng >> r;
+    m[type][subType].find(lat, lng, r);
 }
